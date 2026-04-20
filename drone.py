@@ -1,15 +1,20 @@
+import random
+
 from image_manager import ImageManager
+from particle import DustParticle
 from primitives import *
 import pygame
 import time
 import constants as c
+from sound_manager import SoundManager
+
 
 class Drone(GameObject):
     def __init__(self, game, player, frame):
         super().__init__(game)
         self.player = player
 
-        self.position = Pose((550, 750))
+        self.position = Pose((650, 750))
         self.current_velocity = Pose((0, 0))
         self.acceleration = 9000
         self.max_speed = 900
@@ -18,7 +23,7 @@ class Drone(GameObject):
         self.drone_surf = ImageManager.load("images/drone_flying.png")
         self.drone_surf_stationary = ImageManager.load("images/drone_stopped.png")
 
-        self.is_flying = True
+        self.is_flying = False
         self.flight_offset = Pose((0, 0))
         self.flight_liftoff_acceleration = 4
         self.flight_max_height = 200
@@ -53,6 +58,15 @@ class Drone(GameObject):
 
         self.intersecting_docks = []
         self.has_been_found = False
+        self.clatter = SoundManager.load("sound/drone_land.wav")
+        self.clatter.set_volume(0.7)
+        self.on_ground = True
+        self.pickup_battery_sound = SoundManager.load("sound/drone_pickup_battery.wav")
+        self.ongoing_sound = SoundManager.load("sound/drone_looping.wav")
+        self.ongoing_sound.set_volume(0)
+        self.ongoing_sound.play(-1)
+        self.cut_out_sound = SoundManager.load("sound/drone_cut_out.wav")
+        self.cut_out_sound.set_volume(2)
 
     def show_complaint(self):
         self.complaint_showing = True
@@ -85,7 +99,22 @@ class Drone(GameObject):
         self.obstacles = obstacles
 
     def flight_prop(self):
-        return (self.current_flight_height - self.get_min_flight_height())/(self.flight_max_height - self.get_min_flight_height())
+        result = (self.current_flight_height - self.get_min_flight_height())/(self.flight_max_height - self.get_min_flight_height())
+        if self.is_flying:
+            self.ongoing_sound.set_volume(result*0.8)
+        else:
+            self.ongoing_sound.set_volume(max(0, result*10 - 9)*0.8)
+        if result <= 0.01 and not self.on_ground and not self.is_flying:
+            self.clatter.play()
+            self.on_ground = True
+            self.clatter_particles()
+        return result
+
+    def clatter_particles(self):
+        for i in range(10):
+            speed = 900
+            velocity = random.random()*speed  - speed/2, random.random()*speed - speed/2
+            self.frame.objects.append(DustParticle((self.get_base_position() + Pose((0, -30))).get_position(), velocity=velocity))
 
     def update(self, dt, events):
         self.update_complaint(dt, events)
@@ -135,8 +164,11 @@ class Drone(GameObject):
         self.flight_offset.y += math.sin(time.time() * 6)*5 * self.flight_prop()
         self.flight_offset.x += math.sin(time.time() * 2 + 1.3)*3 * self.flight_prop()
 
-
+        if not self.in_range_of_player() and self.is_flying:
+            self.cut_out_sound.play()
         self.is_flying = self.in_range_of_player()
+        if (self.is_flying):
+            self.on_ground = False
 
 
         self.position += self.current_velocity * dt
@@ -265,3 +297,6 @@ class Drone(GameObject):
             return
         self.carrying_battery = battery
         self.carrying_battery_locked = False
+
+    def on_scene_unload(self):
+        self.ongoing_sound.stop()

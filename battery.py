@@ -21,6 +21,7 @@ class Battery(GameObject):
 
         self.height_on = starting_height
         self.height = starting_height
+        self.has_played_pickup_sound = False
 
     def update(self, dt, events):
         if (self.drone.get_base_position() - self.position).magnitude() < self.drone_pickup_radius:
@@ -29,7 +30,13 @@ class Battery(GameObject):
         if (self.player.get_base_position() - self.position + self.original_base_point).magnitude() < self.player_pickup_radius:
             if not self.is_destroyed:
                 self.destroy()
-                self.player.on_pickup_battery()
+                self.on_player_pickup()
+        if (not self.has_played_pickup_sound and self.drone.carrying_battery == self and abs(self.height - self.drone.current_flight_height) < 25):
+            self.drone.pickup_battery_sound.play()
+            self.has_played_pickup_sound = True
+
+    def on_player_pickup(self):
+        self.player.on_pickup_battery()
 
     def effective_height(self):
         if self.height_on > self.height:
@@ -58,3 +65,12 @@ class Battery(GameObject):
         if c.SHOW_DEBUG:
             pygame.draw.circle(surf, (255, 0, 0), (self.position.x*scale + offset[0]*scale, self.position.y*scale + offset[1]*scale), 5)
         pass
+
+
+class Key(Battery):
+    def __init__(self, game, drone, player, position, starting_height=0):
+        super().__init__(game, drone, player, position, starting_height)
+        self.battery_surf = ImageManager.load("images/key.png")
+
+    def on_player_pickup(self):
+        self.player.on_pickup_key()

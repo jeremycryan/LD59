@@ -21,7 +21,8 @@ class Dock(GameObject):
 
 
     def draw(self, surf, offset=(0, 0), scale = 1):
-
+        if not self.is_on_screen(offset, scale):
+            return
         surf_to_draw = scale_surface_by(self.surface, scale)
 
         x = (self.position.x + offset[0])*scale - surf_to_draw.get_width()//2
@@ -111,3 +112,12 @@ class Dock(GameObject):
                     player.position = target
                 return True
         return False
+
+    def is_on_screen(self, offset=(0, 0), scale=1):
+        x = offset[0] * scale + self.position.x * scale
+        y = offset[1] * scale + self.position.y * scale
+
+        buffer = 150
+        if x < -buffer or x > c.WINDOW_WIDTH + buffer or y < -buffer or y > c.WINDOW_HEIGHT + buffer:
+            return False
+        return True

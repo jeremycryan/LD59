@@ -5,9 +5,12 @@ import pygame
 import constants as c
 
 class Obstacle(GameObject):
-    def __init__(self, game, player, drone, position = (500, 300)):
+    def __init__(self, game, player, drone, position = (500, 300), alternate=False):
         super().__init__(game)
-        self.surface = ImageManager.load("images/test_obstacle.png")
+        if alternate:
+            self.surface = ImageManager.load("images/test_obstacle_3.png")
+        else:
+            self.surface = ImageManager.load("images/test_obstacle.png")
         self.shadow_mask = ImageManager.load("images/test_obstacle_shadow_mask.png")
         self.size = Pose((250, 250))
         self.base_point = Pose((0, -50))
@@ -38,7 +41,7 @@ class Obstacle(GameObject):
         x = offset[0] * scale + self.position.x * scale
         y = offset[1] * scale + self.position.y * scale
 
-        buffer = 300
+        buffer = 150
         if x < -buffer or x > c.WINDOW_WIDTH + buffer or y < -buffer or y > c.WINDOW_HEIGHT + buffer:
             return False
         return True

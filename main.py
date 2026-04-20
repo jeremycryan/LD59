@@ -13,6 +13,7 @@ import asyncio
 
 import webbrowser
 
+# Beepbox link for music: https://www.beepbox.co/#9n61sbk5l00e0jt2wa7g0jj07r1i0o452143T0v1u00f0q011d08w1h6E0T0v1u00f10qaq021d00w1h6E0T0v6u98f10i7q83231d4aw5h2E0T1v5u27f0q0w10x4d03A0F2B6Q4190Pf640E2b777T1v5u35f0qwx10l611d08A6F0B0Q05c0Pa660E2bi626T1v5u44f0qww10l51d03A1F0B7Q005dPd444E5b661862763677T4v3uf0f0q011z6666ji8k8k3jSBKSJJAArriiiiii07JCABrzrrrrrrr00YrkqHrsrrrrjr005zrAqzrjzrrqr1jRjrqGGrrzsrsA099ijrABJJJIAzrrtirqrqjqixzsrAjrqjiqaqqysttAJqjikikrizrHtBJJAzArzrIsRCITKSS099ijrAJS____Qg99habbCAYrDzh00E0b4x4i4N8k4x4i4g000000018j4xgh8x4y4ich8N4z00000x4P4jchcM00004ycO8P8zc000004i8h8x4y8ych514k4hgh50p28KFB-2QyR2OhjkbkbkkR2R2R2M0J8IybobJ2QySyS5dgJgJhjkbsbkbqbmb92O8KYbmbubskR2R2R5dUIwbmbkb0yM8I4bCYb4oJMIAkR2R2R2FE_rHWyddB_QR-28YELjbw2QkSQSBcAb8yRyPbjh-6noq-c8I8bqbmaiZdvzRicwnFE-aqieCOZ4hX96CVLQLFEZh0Rm4tdaCQvjYh9JvyCz_nSkAtl97CAughQ1juzYcGFKDUn0FBW2Q5d0J0J0JoIAbkbgkQ2Q2Q2R2R2PFRdvX_ajq_5cKN1q2CwmwmwmMmi5G5Eaq1q1r1qxqNgjNtd7QhRAuBkhQkQAt5d97hpjljx4MAt5d97hjihQhljli2CnF0MdJtttttttttttttttttttttttttttuhkMc5nnnnnnnnnnnnnnnnnnnnnnnnnnnm1qpkFTyeCieCieCieCieCieCieCieFBiA2ewzE8W2ewzE8W2ewzQ2ewzE8W2ewzEjalsZBeXt5PxncExtyVMLCG4tcAtcAtcAtcArFBiAPp6VBaGKcJ5TcZjaB0g
 
 class Game:
     def __init__(self):
@@ -31,6 +32,9 @@ class Game:
         self.scale = 0.5
 
         pygame.display.set_caption(f"{c.CAPTION}")
+
+        pygame.mixer.music.load("sound/music.wav")
+
 
         asyncio.run(self.main())
 
@@ -63,6 +67,8 @@ class Game:
         current_frame = f.MainFrame(self)
         current_frame.load()
         self.clock.tick(60)
+        pygame.mixer.music.play(-1)
+        pygame.mixer.music.set_volume(0.5)
 
         while True:
             dt, events = self.get_events()
@@ -71,9 +77,8 @@ class Game:
             if dt > 0.05:
                 dt = 0.05
             current_frame.update(dt, events)
-            current_frame.draw(self.small_screen, self.get_shake_offset().get_position())
-            scaled = pygame.transform.scale(self.small_screen, c.SCALED_WINDOW_SIZE)
-            self.screen.blit(scaled, (0, 0))
+            current_frame.draw(self.screen, self.get_shake_offset().get_position())
+            # self.screen.blit(scaled, (0, 0))
             pygame.display.flip()
             await asyncio.sleep(0)
 
@@ -85,7 +90,6 @@ class Game:
     def get_events(self):
 
         dt = self.clock.tick(c.FRAMERATE)/1000
-        pygame.display.set_caption(f"{c.CAPTION} - FPS: {int(1/dt)}")
 
         events = pygame.event.get()
         for event in events:

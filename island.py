@@ -5,8 +5,8 @@ import constants as c
 
 class Island(GameObject):
 
-    SLICES_X = 14
-    SLICES_Y = 14
+    SLICES_X = 32
+    SLICES_Y = 32
 
     def __init__(self, game):
         super().__init__(game)
@@ -20,7 +20,7 @@ class Island(GameObject):
 
     def generate_slices(self):
         buffer = 0
-        slice_surf = pygame.Surface((self.surf.get_width()//self.SLICES_X + buffer, self.surf.get_height()//self.SLICES_Y + buffer), pygame.SRCALPHA)
+        slice_surf = pygame.Surface((self.surf.get_width()//self.SLICES_X + buffer, self.surf.get_height()//self.SLICES_Y + buffer), pygame.SRCALPHA).convert()
         for y in range(self.SLICES_Y):
             row = []
             position_row = []
@@ -41,9 +41,10 @@ class Island(GameObject):
                 cx = original_position[0]*scale + offset[0]*scale - self.surf.get_width()*scale//2 + self.position.x*scale - slice.get_width()*scale//2
                 cy = original_position[1]*scale + offset[1]*scale - self.surf.get_height()*scale//2 + self.position.y*scale - slice.get_height()*scale//2
 
-                if (cx > c.WINDOW_WIDTH) or cy > c.WINDOW_HEIGHT:
+                buffer = 0
+                if (cx > c.WINDOW_WIDTH + buffer) or cy > c.WINDOW_HEIGHT + buffer:
                     continue
-                if (cx < -slice.get_width()*scale or cy < -slice.get_height()*scale):
+                if (cx < -slice.get_width()*scale - buffer or cy < -slice.get_height()*scale - buffer):
                     continue
                 slice = scale_surface_by(slice, scale)
                 surf.blit(slice, (cx, cy))

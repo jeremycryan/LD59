@@ -1,8 +1,13 @@
+import random
 import time
 
 from image_manager import ImageManager
+from particle import *
 from primitives import *
 import pygame
+
+from sound_manager import SoundManager
+
 
 class Player(GameObject):
     def __init__(self, game, frame, position):
@@ -21,6 +26,7 @@ class Player(GameObject):
         self.player_face_blink = ImageManager.load("images/player_face_blink.png")
 
         self.drone_range = 300
+        self.drone_ranges = [350, 500, 650, 725, 800, 950, 1000, 2000]
         self.target_drone_range = 300
         self.starting_drone_range = self.drone_range
         self.drone = None
@@ -52,6 +58,21 @@ class Player(GameObject):
         self.intersecting_docks = []
         self.has_been_found = False
 
+        self.walks = [ImageManager.load(f"images/player_walk_{i+1}.png") for i in range(4)]
+        self.actual_velocity = Pose((0, 0))
+
+        self.footstep_sounds = [
+            SoundManager.load("sound/footstep_var_1.wav"),
+            SoundManager.load("sound/footstep_var_2.wav"),
+            SoundManager.load("sound/footstep_var_3.wav"),
+            ]
+        self.prime_second_footstep = False
+
+        self.battery_pickup_sound = SoundManager.load("sound/player_pickup_battery.wav")
+        self.battery_pickup_sound.set_volume(0.2)
+        self.pickup_key_sound = SoundManager.load("sound/pickup_key.wav")
+        self.pickup_key_sound.set_volume(1)
+
     def show_complaint(self):
         self.complaint_showing = True
         self.since_complaint = 0
@@ -79,8 +100,22 @@ class Player(GameObject):
     def through_footstep(self):
         return min(self.since_last_footstep/self.footstep_period, 1)
 
+    def walk_image(self):
+        through = self.through_footstep()
+        if through < 0.25:
+            return self.walks[0]
+        elif through < 0.5:
+            return self.walks[1]
+        elif through < 0.75:
+            return self.walks[2]
+        else:
+            return self.walks[3]
+
     def step(self):
         self.since_last_footstep = 0
+        random.choice(self.footstep_sounds).play()
+        self.prime_second_footstep = True
+        self.on_step()
 
     def footstep_vertical_offset(self):
         if self.through_footstep() >= 1:
@@ -97,9 +132,29 @@ class Player(GameObject):
         #     return 1
         return 1 - (abs(math.sin(self.since_last_footstep/self.footstep_period * 2*math.pi + math.pi/2))*0.1 * self.squish_intensity)
 
+    def on_step(self):
+        if self.game.is_web_build():
+            return
+        for i in range(3):
+            speed = 400
+            velocity = random.random()*speed  - speed/2, random.random()*speed - speed/2
+            self.frame.objects.append(DustParticle((self.get_base_position() + Pose((0, -30))).get_position(), velocity=velocity))
+
+    def on_collect_battery(self):
+        if self.game.is_web_build():
+            return
+        for i in range(30):
+            speed = 2000
+            velocity = random.random()*speed  - speed/2, random.random()*speed - speed/2
+            self.frame.objects.append(BatteryCollectParticle((self.position).get_position(), velocity=velocity))
+
     def update(self, dt, events):
         self.update_complaint(dt, events)
         self.since_last_footstep += dt
+        if (self.through_footstep() > 0.5 and self.prime_second_footstep):
+            self.prime_second_footstep = False
+            random.choice(self.footstep_sounds).play()
+            self.on_step()
         self.age += dt
         self.since_drone_in_range += dt
         pressed = pygame.key.get_pressed()
@@ -119,18 +174,17 @@ class Player(GameObject):
 
         for event in events:
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_b:
-                    self.on_pickup_battery()
                 if event.key == pygame.K_r:
-                    if (not self.over_water_or_dock()):
-                        self.drone.position = self.position
+                    if (not self.over_water_or_dock() and self.complaint_showing):
+                        self.drone.position = self.position + self.base_point - self.drone.base_point
                         self.drone.current_flight_height = 0
                         self.hide_complaint()
                 if event.key == pygame.K_p:
                     print(f"Drone position: {self.drone.get_base_position()}")
+                    print(f"Player position: {self.get_base_position()}")
 
         if (self.through_footstep() < 1):
-            target_squish = 1.25
+            target_squish = 1.4
         else:
             target_squish = 0.5
         ds = target_squish - self.squish_intensity
@@ -165,6 +219,7 @@ class Player(GameObject):
             self.position = self.frame.island.nearest_water_pixel(self.last_position + self.base_point,
                                                                   self.position + self.base_point) - self.base_point
             self.position = Pose(self.nearest_non_water_position(direction)) - self.base_point
+        self.actual_velocity = (self.position - self.last_position)*(1/dt)
         self.last_position = self.position
 
     def on_drone_in_range(self):
@@ -183,7 +238,11 @@ class Player(GameObject):
         h = self.player_surf.get_height() * scale * self.footstep_squish_factor()
         oh = self.player_surf.get_height() * scale
 
-        player_surf = pygame.transform.scale(self.player_surf, (w, h))
+
+        surf_to_use = self.player_surf
+        if (self.through_footstep() < 0.99):
+            surf_to_use = self.walk_image()
+        player_surf = pygame.transform.scale(surf_to_use, (w, h))
         face_surf_to_use = self.player_face_surf if time.time() % 6 < 5.85 else self.player_face_blink
         player_face_surf = pygame.transform.scale(face_surf_to_use, (w, h))
 
@@ -216,7 +275,7 @@ class Player(GameObject):
         pass
 
     def calculate_ideal_camera_position(self):
-        offset = Pose((self.current_velocity.x*0.5, self.current_velocity.y*0.5))
+        offset = Pose((self.current_velocity.x*0.3, self.current_velocity.y*0.3))
         return self.position + offset
 
     def draw_shadow(self, surf, offset=(0, 0), scale=1):
@@ -227,12 +286,20 @@ class Player(GameObject):
         circle_surf = pygame.transform.rotate(circle_surf, self.age*8)
         x = offset[0]*scale + self.get_base_position().x * scale - circle_surf.get_width()//2
         y = offset[1]*scale + self.get_base_position().y * scale - circle_surf.get_height()//2
-        surf.blit(circle_surf, (x, y))
+
+        if (self.drone.has_been_found):
+
+            surf.blit(circle_surf, (x, y))
 
 
 
     def on_pickup_battery(self):
-        self.target_drone_range *= 1.2
+        if self.drone_ranges:
+            self.target_drone_range = self.drone_ranges.pop(0)
+        if not self.drone_ranges:
+            self.on_pickup_last_battery()
+        self.battery_pickup_sound.play()
+        self.on_collect_battery()
 
     def nearest_non_water_position(self, direction):
         result = self.frame.island.nearest_non_water_pixel(self.get_base_position().get_position(), direction)
@@ -245,3 +312,11 @@ class Player(GameObject):
     def over_water_or_dock(self):
         result = self.frame.island.water_or_dock_at(self.get_base_position().get_position())
         return result
+
+    def on_pickup_key(self):
+        for door in self.frame.doors:
+            door.on_pickup_key()
+        self.pickup_key_sound.play()
+
+    def on_pickup_last_battery(self):
+        self.frame.start_end_sequence()
