@@ -111,10 +111,12 @@ class Drone(GameObject):
         return result
 
     def clatter_particles(self):
+        if self.game.is_web_build:
+            return
         for i in range(10):
             speed = 900
             velocity = random.random()*speed  - speed/2, random.random()*speed - speed/2
-            self.frame.objects.append(DustParticle((self.get_base_position() + Pose((0, -30))).get_position(), velocity=velocity))
+            self.frame.objects.append(DustParticle((self.position + Pose((0, -self.current_flight_height)) + Pose((0, -30))).get_position(), velocity=velocity))
 
     def update(self, dt, events):
         self.update_complaint(dt, events)
